@@ -1,0 +1,8 @@
+flask
+joblib
+scikit-learn
+spacy
+pandas
+numpy
+textblob
+nltk
