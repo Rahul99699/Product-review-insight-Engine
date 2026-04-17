@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flipkart Review Analyzer | Aspect-Based Sentiment Analysis</title>
+  <meta name="description" content="Paste any Flipkart product URL and get deep aspect-based sentiment analysis of customer reviews using AI-powered NLP." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <!-- Animated background particles -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <div class="container">
+    <header class="hero">
+      <div class="logo-badge">
+        <span>🔍</span>
+      </div>
+      <h1 class="hero-title">Flipkart Review <span class="gradient-text">Analyzer</span></h1>
+      <p class="hero-subtitle">
+        Paste a Flipkart product URL and get AI-powered<br/>
+        <strong>aspect-based sentiment analysis</strong> of all customer reviews
+      </p>
+    </header>
+
+    <main>
+      {% if error %}
+      <div class="alert alert-error">
+        <span>⚠️</span> {{ error }}
+      </div>
+      {% endif %}
+
+      <div class="card form-card">
+        <form action="/analyze" method="POST" id="analyzeForm">
+          <div class="input-group">
+            <label for="url" class="input-label">Flipkart Product URL</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🔗</span>
+              <input
+                type="url"
+                id="url"
+                name="url"
+                class="url-input"
+                placeholder="https://www.flipkart.com/product/p/item?pid=..."
+                required
+                autocomplete="off"
+              />
+            </div>
+          </div>
+          <button type="submit" class="btn-analyze" id="submitBtn">
+            <span class="btn-text">Analyze Reviews</span>
+            <span class="btn-icon">→</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- How it works -->
+      <div class="steps-section">
+        <h2 class="steps-title">How It Works</h2>
+        <div class="steps-grid">
+          <div class="step-card">
+            <div class="step-number">01</div>
+            <div class="step-icon">📋</div>
+            <h3>Scrape Reviews</h3>
+            <p>Our agent fetches all customer reviews from the Flipkart product page using Selenium</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">02</div>
+            <div class="step-icon">🧠</div>
+            <h3>NLP Analysis</h3>
+            <p>spaCy extracts product aspects (battery, camera, display…) from review text</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">03</div>
+            <div class="step-icon">📊</div>
+            <h3>Sentiment Scoring</h3>
+            <p>VADER scores sentiment for each aspect — positive, neutral, or negative</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">04</div>
+            <div class="step-icon">📈</div>
+            <h3>Visual Results</h3>
+            <p>Interactive charts show exactly what customers love and hate about the product</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Example URL hint -->
+      <div class="hint-section">
+        <p class="hint-text">💡 Tip: Open any Flipkart product page and copy the full URL from your browser's address bar</p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    document.getElementById('analyzeForm').addEventListener('submit', function () {
+      const btn = document.getElementById('submitBtn');
+      btn.innerHTML = '<span class="spinner"></span> Analyzing…';
+      btn.disabled = true;
+    });
+  </script>
+</body>
+</html>

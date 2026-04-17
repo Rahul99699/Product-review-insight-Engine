@@ -1,0 +1,7 @@
+about the project 
+project is like
+there will be one website where you put any flipkart product url (specific designed for flipkar)
+using that porduct url one agent going of fetch the product alll review  and make it to a csv file 
+after that these review given to the nlp model for sentiment analysis  model will first classify the class like
+this car battery is really good also the color is great . (nlp took battery,color make sentiment on that  )
+last show the result in a graph form 

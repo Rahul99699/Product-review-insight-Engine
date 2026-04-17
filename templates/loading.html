@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analyzing Reviews… | Flipkart Review Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <div class="container loading-container">
+    <div class="loading-card card">
+      <div class="loading-animation">
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring delay-1"></div>
+        <div class="pulse-ring delay-2"></div>
+        <span class="loading-emoji">🔍</span>
+      </div>
+      <h1 class="loading-title">Analyzing Product Reviews</h1>
+      <p class="loading-status" id="statusText">Initializing scraper…</p>
+
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+
+      <div class="loading-steps">
+        <div class="lstep" id="step-scraping">
+          <span class="lstep-icon">🕷️</span>
+          <span>Scraping reviews from Flipkart</span>
+          <span class="lstep-status" id="status-scraping">⏳</span>
+        </div>
+        <div class="lstep" id="step-analyzing">
+          <span class="lstep-icon">🧠</span>
+          <span>Running NLP sentiment analysis</span>
+          <span class="lstep-status" id="status-analyzing">⏳</span>
+        </div>
+        <div class="lstep" id="step-done">
+          <span class="lstep-icon">📊</span>
+          <span>Generating charts</span>
+          <span class="lstep-status" id="status-done">⏳</span>
+        </div>
+      </div>
+
+      <p class="loading-note">This can take 1–3 minutes depending on how many reviews the product has.</p>
+    </div>
+  </div>
+
+  <script>
+    const jobId = "{{ job_id }}";
+    let progress = 5;
+
+    const statusMessages = {
+      queued:    "Initializing scraper…",
+      scraping:  "Scraping customer reviews from Flipkart…",
+      analyzing: "Running aspect-based sentiment analysis…",
+      done:      "Done! Preparing your results…",
+      error:     "An error occurred."
+    };
+
+    const progressMap = {
+      queued: 10,
+      scraping: 45,
+      analyzing: 80,
+      done: 100
+    };
+
+    function setStep(status) {
+      const steps = ['scraping', 'analyzing', 'done'];
+      const order = { scraping: 0, analyzing: 1, done: 2 };
+      const current = order[status] ?? -1;
+      steps.forEach((s, i) => {
+        const el = document.getElementById('status-' + s);
+        if (!el) return;
+        if (i < current) el.textContent = '✅';
+        else if (i === current) el.textContent = '🔄';
+        else el.textContent = '⏳';
+      });
+    }
+
+    async function poll() {
+      try {
+        const res = await fetch(`/status/${jobId}`);
+        const data = await res.json();
+        const status = data.status;
+
+        document.getElementById('statusText').textContent = statusMessages[status] || status;
+
+        // Animate progress
+        const target = progressMap[status] || progress;
+        progress = Math.min(target, progress + 2);
+        document.getElementById('progressFill').style.width = progress + '%';
+
+        setStep(status);
+
+        if (status === 'done') {
+          document.getElementById('progressFill').style.width = '100%';
+          setTimeout(() => { window.location.href = `/results/${jobId}`; }, 800);
+        } else if (status === 'error') {
+          document.getElementById('statusText').textContent = '❌ ' + (data.error || 'Unknown error');
+        } else {
+          setTimeout(poll, 2000);
+          // Keep inching progress
+          if (progress < (progressMap[status] || 90)) {
+            progress = Math.min(progress + 1, 95);
+            document.getElementById('progressFill').style.width = progress + '%';
+          }
+        }
+      } catch (e) {
+        setTimeout(poll, 3000);
+      }
+    }
+
+    poll();
+  </script>
+</body>
+</html>

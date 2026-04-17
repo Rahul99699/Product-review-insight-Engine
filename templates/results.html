@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ product_name }} – Sentiment Analysis Results</title>
+  <meta name="description" content="Aspect-based sentiment analysis results for {{ product_name }} from Flipkart." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+
+  <!-- Nav -->
+  <nav class="results-nav">
+    <a href="/" class="nav-back">← New Analysis</a>
+    <span class="nav-title">Review Analyzer</span>
+    {% if csv_filename %}
+    <a href="/download/{{ csv_filename }}" class="btn-download">⬇ Download CSV</a>
+    {% endif %}
+  </nav>
+
+  <div class="container results-container">
+
+    <!-- Product Header -->
+    <header class="product-header">
+      <div class="product-badge">📦</div>
+      <div>
+        <h1 class="product-title">{{ product_name }}</h1>
+        <p class="product-meta">
+          <span class="meta-pill">{{ total_reviews }} reviews analyzed</span>
+        </p>
+      </div>
+    </header>
+
+    <!-- Overall Sentiment Summary Cards -->
+    <section class="summary-cards">
+      {% set pos_pct = ((overall.positive / overall.total * 100) | round(1)) if overall.total > 0 else 0 %}
+      {% set neg_pct = ((overall.negative / overall.total * 100) | round(1)) if overall.total > 0 else 0 %}
+      {% set neu_pct = ((overall.neutral / overall.total * 100) | round(1)) if overall.total > 0 else 0 %}
+
+      <div class="summary-card positive-card">
+        <div class="summary-icon">😊</div>
+        <div class="summary-num">{{ pos_pct }}%</div>
+        <div class="summary-label">Positive</div>
+        <div class="summary-count">{{ overall.positive }} reviews</div>
+      </div>
+      <div class="summary-card neutral-card">
+        <div class="summary-icon">😐</div>
+        <div class="summary-num">{{ neu_pct }}%</div>
+        <div class="summary-label">Neutral</div>
+        <div class="summary-count">{{ overall.neutral }} reviews</div>
+      </div>
+      <div class="summary-card negative-card">
+        <div class="summary-icon">😞</div>
+        <div class="summary-num">{{ neg_pct }}%</div>
+        <div class="summary-label">Negative</div>
+        <div class="summary-count">{{ overall.negative }} reviews</div>
+      </div>
+    </section>
+
+    <!-- Charts Row -->
+    <section class="charts-row">
+      <!-- Aspect Bar Chart -->
+      <div class="card chart-card chart-wide">
+        <h2 class="chart-title">📊 Aspect-wise Sentiment Breakdown</h2>
+        <p class="chart-subtitle">How customers feel about each product aspect</p>
+        <div class="chart-wrapper">
+          <canvas id="aspectBarChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Overall Pie Chart -->
+      <div class="card chart-card chart-narrow">
+        <h2 class="chart-title">🥧 Overall Sentiment</h2>
+        <p class="chart-subtitle">Total review sentiment distribution</p>
+        <div class="chart-wrapper pie-wrapper">
+          <canvas id="overallPieChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Aspect Score Chart -->
+    <section class="card chart-card">
+      <h2 class="chart-title">📈 Average Sentiment Score by Aspect</h2>
+      <p class="chart-subtitle">VADER compound score: +1 = most positive, −1 = most negative</p>
+      <div class="chart-wrapper chart-tall">
+        <canvas id="scoreLineChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Aspect Details Table -->
+    <section class="card table-card">
+      <h2 class="chart-title">🔎 Aspect Details</h2>
+      <div class="table-wrapper">
+        <table class="aspect-table">
+          <thead>
+            <tr>
+              <th>Aspect</th>
+              <th>Mentions</th>
+              <th>Positive</th>
+              <th>Neutral</th>
+              <th>Negative</th>
+              <th>Avg Score</th>
+              <th>Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for aspect, data in aspect_results.items() %}
+            <tr>
+              <td class="aspect-name">{{ aspect | capitalize }}</td>
+              <td class="num">{{ data.total }}</td>
+              <td class="num pos">{{ data.positive }}</td>
+              <td class="num neu">{{ data.neutral }}</td>
+              <td class="num neg">{{ data.negative }}</td>
+              <td class="num">
+                <span class="score-badge {% if data.avg_score >= 0.05 %}score-pos{% elif data.avg_score <= -0.05 %}score-neg{% else %}score-neu{% endif %}">
+                  {{ data.avg_score }}
+                </span>
+              </td>
+              <td>
+                {% if data.avg_score >= 0.05 %}
+                  <span class="verdict-badge verdict-pos">👍 Good</span>
+                {% elif data.avg_score <= -0.05 %}
+                  <span class="verdict-badge verdict-neg">👎 Needs Work</span>
+                {% else %}
+                  <span class="verdict-badge verdict-neu">😐 Mixed</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Example Snippets -->
+    {% if aspect_results %}
+    <section class="card examples-card">
+      <h2 class="chart-title">💬 Sample Review Snippets by Aspect</h2>
+      <div class="examples-grid">
+        {% for aspect, data in aspect_results.items() %}
+          {% if data.examples %}
+          <div class="example-group">
+            <h3 class="example-aspect">{{ aspect | capitalize }}</h3>
+            {% for ex in data.examples %}
+            <div class="example-item sentiment-{{ ex.sentiment }}">
+              <span class="ex-label {{ ex.sentiment }}">{{ ex.sentiment }}</span>
+              <p class="ex-text">"{{ ex.text }}"</p>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+  </div><!-- /container -->
+
+  <script>
+    const aspectData = {{ aspect_results_json | safe }};
+    const overallData = {{ overall_json | safe }};
+
+    const aspects = Object.keys(aspectData);
+    const positives = aspects.map(a => aspectData[a].positive);
+    const neutrals  = aspects.map(a => aspectData[a].neutral);
+    const negatives = aspects.map(a => aspectData[a].negative);
+    const avgScores = aspects.map(a => aspectData[a].avg_score);
+
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = 'Inter, sans-serif';
+
+    // ── Bar Chart ────────────────────────────────────────────────────────────
+    new Chart(document.getElementById('aspectBarChart'), {
+      type: 'bar',
+      data: {
+        labels: aspects.map(a => a.charAt(0).toUpperCase() + a.slice(1)),
+        datasets: [
+          { label: 'Positive', data: positives, backgroundColor: 'rgba(52,211,153,0.85)', borderRadius: 6 },
+          { label: 'Neutral',  data: neutrals,  backgroundColor: 'rgba(148,163,184,0.7)', borderRadius: 6 },
+          { label: 'Negative', data: negatives, backgroundColor: 'rgba(251,113,133,0.85)', borderRadius: 6 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top' } },
+        scales: {
+          x: { stacked: false, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+      }
+    });
+
+    // ── Pie Chart ────────────────────────────────────────────────────────────
+    new Chart(document.getElementById('overallPieChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Positive', 'Neutral', 'Negative'],
+        datasets: [{
+          data: [overallData.positive, overallData.neutral, overallData.negative],
+          backgroundColor: ['rgba(52,211,153,0.85)', 'rgba(148,163,184,0.7)', 'rgba(251,113,133,0.85)'],
+          borderWidth: 2,
+          borderColor: '#0f172a'
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} reviews` } }
+        },
+        cutout: '60%'
+      }
+    });
+
+    // ── Score Line / Bar Chart ────────────────────────────────────────────────
+    const scoreColors = avgScores.map(s =>
+      s >= 0.05 ? 'rgba(52,211,153,0.85)' : s <= -0.05 ? 'rgba(251,113,133,0.85)' : 'rgba(148,163,184,0.7)'
+    );
+    new Chart(document.getElementById('scoreLineChart'), {
+      type: 'bar',
+      data: {
+        labels: aspects.map(a => a.charAt(0).toUpperCase() + a.slice(1)),
+        datasets: [{
+          label: 'Avg Sentiment Score',
+          data: avgScores,
+          backgroundColor: scoreColors,
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { min: -1, max: 1, grid: { color: 'rgba(255,255,255,0.05)' },
+               ticks: { callback: v => v.toFixed(2) }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
