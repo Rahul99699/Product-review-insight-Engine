@@ -119,19 +119,13 @@ pip install -r requirements.txt
 
 ## ▶️ Usage
 
-1. Run review collection:
+1. Run :
 
 ```bash
-python scraper/fetch_reviews.py
+python app.py
 ```
 
-2. Run pipeline:
 
-```bash
-python src/pipeline.py
-```
-
----
 
 ## 💡 Use Cases
 
