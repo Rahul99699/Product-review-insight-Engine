@@ -1,107 +1,102 @@
 import re
 import spacy
+import emoji
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-# Load spaCy model
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    import subprocess, sys
-    subprocess.run([sys.executable, "-m", "spacy", "download", "en_core_web_sm"], check=True)
-    nlp = spacy.load("en_core_web_sm")
+# Load lightweight spaCy pipeline (disable heavy components)
+nlp = spacy.blank("en")
+nlp.add_pipe("sentencizer")
 
 analyzer = SentimentIntensityAnalyzer()
 
-# Common product aspects to look for
+# -------- Emoji Handling --------
+def handle_emojis(text: str) -> str:
+    """Convert emojis to text (😊 -> smiling face)"""
+    return emoji.demojize(text, delimiters=(" ", " "))
+
+
+# -------- Common Aspects --------
 COMMON_ASPECTS = {
-    "battery": ["battery", "charge", "charging", "backup", "mah", "power"],
-    "display": ["display", "screen", "amoled", "lcd", "brightness", "resolution", "refresh"],
-    "camera": ["camera", "photo", "video", "selfie", "lens", "megapixel", "mp", "picture"],
-    "performance": ["performance", "speed", "fast", "lag", "processor", "cpu", "slow", "smooth", "hang"],
-    "design": ["design", "build", "look", "color", "colour", "body", "weight", "feel", "slim", "thin"],
-    "price": ["price", "cost", "value", "worth", "money", "affordable", "expensive", "cheap", "budget"],
-    "sound": ["sound", "speaker", "audio", "volume", "bass", "mic", "microphone"],
-    "storage": ["storage", "memory", "ram", "gb", "rom", "space"],
-    "software": ["software", "ui", "interface", "update", "os", "features", "app", "bloatware"],
-    "delivery": ["delivery", "shipping", "packaging", "box", "packed", "arrived", "days"],
+    "battery": ["battery", "charge", "charging", "backup", "power"],
+    "display": ["display", "screen", "brightness", "resolution"],
+    "camera": ["camera", "photo", "video", "selfie", "lens"],
+    "performance": ["performance", "speed", "fast", "lag", "slow"],
+    "design": ["design", "build", "look", "body"],
+    "price": ["price", "cost", "value", "expensive", "cheap"],
+    "sound": ["sound", "speaker", "audio"],
+    "storage": ["storage", "memory", "ram"],
+    "software": ["software", "ui", "update", "app"],
+    "delivery": ["delivery", "shipping", "packaging"],
+}
+
+# Precompute keyword → aspect mapping (FASTER)
+KEYWORD_TO_ASPECT = {
+    kw: aspect for aspect, kws in COMMON_ASPECTS.items() for kw in kws
 }
 
 
-def normalize_aspect(word: str) -> str:
-    """Map a word to a canonical aspect name."""
-    word = word.lower()
-    for aspect, keywords in COMMON_ASPECTS.items():
-        if word in keywords:
-            return aspect
-    return word
-
-
-def extract_aspects_from_text(text: str) -> list:
-    """
-    Use spaCy to extract noun phrases / nouns that may be aspects.
-    Returns a list of (aspect_label, sentence_text) tuples.
-    """
-    doc = nlp(text)
-    aspect_sentences = []
-
-    for sent in doc.sents:
-        sent_text = sent.text.strip()
-        # Check sentence for known aspect keywords
-        sent_lower = sent_text.lower()
-        matched_aspects = set()
-        for aspect, keywords in COMMON_ASPECTS.items():
-            if any(kw in sent_lower for kw in keywords):
-                matched_aspects.add(aspect)
-        # Also extract noun chunks
-        for chunk in sent.noun_chunks:
-            token = chunk.root.lemma_.lower()
-            norm = normalize_aspect(token)
-            if norm in COMMON_ASPECTS:
-                matched_aspects.add(norm)
-        for aspect in matched_aspects:
-            aspect_sentences.append((aspect, sent_text))
-
-    return aspect_sentences
-
-
-def score_sentiment(text: str) -> dict:
-    """Return VADER compound score and label."""
+# -------- Sentiment --------
+def score_sentiment(text: str):
     scores = analyzer.polarity_scores(text)
     compound = scores["compound"]
+
     if compound >= 0.05:
-        label = "positive"
+        return compound, "positive"
     elif compound <= -0.05:
-        label = "negative"
-    else:
-        label = "neutral"
-    return {"compound": compound, "label": label}
+        return compound, "negative"
+    return compound, "neutral"
 
 
+# -------- Aspect Extraction --------
+def extract_aspects(text: str):
+    doc = nlp(text)
+    results = []
+
+    for sent in doc.sents:
+        sent_text = sent.text.strip().lower()
+
+        matched = set()
+
+        # Keyword matching (FAST)
+        for word in sent_text.split():
+            if word in KEYWORD_TO_ASPECT:
+                matched.add(KEYWORD_TO_ASPECT[word])
+
+        # Lemma-based matching
+        for token in sent:
+            lemma = token.lemma_.lower()
+            if lemma in KEYWORD_TO_ASPECT:
+                matched.add(KEYWORD_TO_ASPECT[lemma])
+
+        for aspect in matched:
+            results.append((aspect, sent.text.strip()))
+
+    return results
+
+
+# -------- Main Function --------
 def analyze_reviews(df):
-    """
-    Perform aspect-based sentiment analysis on a reviews DataFrame.
-
-    Returns:
-        aspect_results (dict): {aspect: {positive: N, negative: N, neutral: N, avg_score: float, examples: [...]}}
-        overall (dict): {positive: N, negative: N, neutral: N, total: N}
-    """
     aspect_results = {}
     overall = {"positive": 0, "negative": 0, "neutral": 0, "total": 0}
 
-    for _, row in df.iterrows():
-        review_text = str(row.get("review", "")).strip()
-        if not review_text or len(review_text) < 5:
+    for row in df.itertuples(index=False):
+        review_text = str(getattr(row, "review", "")).strip()
+
+        if len(review_text) < 5:
             continue
 
-        # Overall review sentiment
-        overall_score = score_sentiment(review_text)
-        overall[overall_score["label"]] += 1
+        # Handle emojis
+        review_text = handle_emojis(review_text)
+
+        # Overall sentiment
+        score, label = score_sentiment(review_text)
+        overall[label] += 1
         overall["total"] += 1
 
-        # Aspect-level sentiment
-        aspect_sentences = extract_aspects_from_text(review_text)
-        for aspect, sentence in aspect_sentences:
-            sent_score = score_sentiment(sentence)
+        # Aspect-level
+        for aspect, sentence in extract_aspects(review_text):
+            sent_score, sent_label = score_sentiment(sentence)
+
             if aspect not in aspect_results:
                 aspect_results[aspect] = {
                     "positive": 0,
@@ -110,29 +105,32 @@ def analyze_reviews(df):
                     "scores": [],
                     "examples": []
                 }
-            aspect_results[aspect][sent_score["label"]] += 1
-            aspect_results[aspect]["scores"].append(sent_score["compound"])
+
+            aspect_results[aspect][sent_label] += 1
+            aspect_results[aspect]["scores"].append(sent_score)
+
             if len(aspect_results[aspect]["examples"]) < 3:
                 aspect_results[aspect]["examples"].append({
-                    "text": sentence[:200],
-                    "sentiment": sent_score["label"],
-                    "score": round(sent_score["compound"], 3)
+                    "text": sentence[:150],
+                    "sentiment": sent_label,
+                    "score": round(sent_score, 3)
                 })
 
-    # Compute average scores and sort by mention count
+    # Final aggregation
     for aspect in aspect_results:
         scores = aspect_results[aspect].pop("scores")
-        total_mentions = (
-            aspect_results[aspect]["positive"]
-            + aspect_results[aspect]["negative"]
-            + aspect_results[aspect]["neutral"]
-        )
-        aspect_results[aspect]["total"] = total_mentions
+        total = sum([
+            aspect_results[aspect]["positive"],
+            aspect_results[aspect]["negative"],
+            aspect_results[aspect]["neutral"]
+        ])
+
+        aspect_results[aspect]["total"] = total
         aspect_results[aspect]["avg_score"] = round(
             sum(scores) / len(scores) if scores else 0, 3
         )
 
-    # Sort by total mentions descending
+    # Sort by importance
     aspect_results = dict(
         sorted(aspect_results.items(), key=lambda x: x[1]["total"], reverse=True)
     )

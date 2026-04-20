@@ -5,3 +5,13 @@ using that porduct url one agent going of fetch the product alll review  and mak
 after that these review given to the nlp model for sentiment analysis  model will first classify the class like
 this car battery is really good also the color is great . (nlp took battery,color make sentiment on that  )
 last show the result in a graph form 
+
+
+
+How to use
+
+1 go to flipkart
+2 select any product
+3 in product section scroll click show all review 
+4 copy the url
+5 paste url on sentiment url section 
