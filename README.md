@@ -157,12 +157,5 @@ Contributions are welcome! Feel free to fork and submit a PR.
 
 ---
 
-## 📬 Contact
-
-* LinkedIn: https://linkedin.com/in/rahul99699
-* Email: [r9979413@gmail.com](mailto:r9979413@gmail.com)
-
----
-
 ⭐ If you found this project useful, consider giving it a star!
 Added contribution by Jasleen
