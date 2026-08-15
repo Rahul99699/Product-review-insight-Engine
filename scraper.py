@@ -11,22 +11,33 @@ from bs4 import BeautifulSoup
 
 
 def get_driver():
-    chromedriver_autoinstaller.install()
     options = Options()
-    options.add_argument("--headless=new")
+
+    # Render/Linux Chromium
+    options.binary_location = "/usr/bin/chromium"
+
+    options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
     options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
+    options.add_argument("--window-size=1920,1080")
+
     UA = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "Mozilla/5.0 (X11; Linux x86_64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/124.0.0.0 Safari/537.36"
     )
-    options.add_argument("user-agent=" + UA)
+
+    options.add_argument(f"user-agent={UA}")
+
     driver = webdriver.Chrome(options=options)
-    driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": UA})
+
+    driver.execute_cdp_cmd(
+        "Network.setUserAgentOverride",
+        {"userAgent": UA}
+    )
+
     return driver
 
 
