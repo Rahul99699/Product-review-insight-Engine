@@ -6,3 +6,4 @@ pandas
 spacy
 vaderSentiment
 lxml
+gunicorn
